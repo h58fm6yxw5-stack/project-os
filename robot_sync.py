@@ -150,3 +150,93 @@ class Robot(threading.Thread):
                 if grid[nx][ny] == 0:  # empty
                     # Clear old cell
                     grid[self.x][self.y] = 0
+schedule_update_cell(self.x, self.y, 0)
+
+                    # Move robot
+                    self.x, self.y = nx, ny
+                    grid[nx][ny] = self.rid
+
+                    schedule_update_cell(nx, ny, self.rid)
+                    schedule_update_stats()
+
+            self.moves_done += 1
+
+        # Robot finishes and disappears
+        with movement_lock:
+            if grid[self.x][self.y] == self.rid:
+                grid[self.x][self.y] = 0
+                schedule_update_cell(self.x, self.y, 0)
+
+# ----------------------------
+# Movement Lock
+# ----------------------------
+movement_lock = threading.Lock()
+
+# ----------------------------
+# Stats Panel
+# ----------------------------
+stats_label = tk.Label(root, text="Robots Running: 0", font=("Arial", 14))
+stats_label.grid(row=1, column=0, pady=10)
+
+def _update_stats_text():
+    active = sum(1 for r in robots if r.is_alive())
+    stats_label.config(text=f"Robots Running: {active}")
+
+# ----------------------------
+# Control Buttons
+# ----------------------------
+def start_simulation():
+    """Start the simulation with random robot positions."""
+    global robots
+    robots = []
+
+    # Clear grid
+    for i in range(ROWS):
+        for j in range(COLS):
+            grid[i][j] = 0
+            schedule_update_cell(i, j, 0)
+
+    # Place robots
+    used = set()
+
+    for rid in range(1, INITIAL_ROBOTS + 1):
+        while True:
+            x = random.randint(0, ROWS - 1)
+            y = random.randint(0, COLS - 1)
+
+            if (x, y) not in used:
+                used.add((x,y))
+                grid[x][y] = rid
+                schedule_update_cell(x, y, rid)
+
+                r = Robot(rid, x, y)
+                robots.append(r)
+                r.start()
+                break
+
+    schedule_update_stats()
+
+def reset_simulation():
+    """Stop all robots and clear grid."""
+    for r in robots:
+        r.running = False
+
+    for i in range(ROWS):
+        for j in range(COLS):
+            grid[i][j] = 0
+            schedule_update_cell(i, j, 0)
+
+    schedule_update_stats()
+
+start_btn = tk.Button(root, text="Start", width=20, command=start_simulation)
+start_btn.grid(row=2, column=0, pady=5)
+
+reset_btn = tk.Button(root, text="Reset", width=20, command=reset_simulation)
+reset_btn.grid(row=3, column=0, pady=5)
+
+# ----------------------------
+# Run UI Processor & Mainloop
+# ----------------------------
+robots = []
+process_ui_queue()
+root.mainloop()
